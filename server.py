@@ -61,7 +61,7 @@ async def main():
     global numclients  # number of clients
     numclients = 0
     server = 'coap://localhost:5683/model'  # server address
-    context = await Context.create_server_context(('localhost', 5))  # create a server context
+    context = await Context.create_server_context(('localhost', 5683))  # create a server context
     print("Server federated learning avviato.")
 
     for i in range(10):
