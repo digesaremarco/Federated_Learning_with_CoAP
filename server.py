@@ -61,8 +61,10 @@ async def main():
     global numclients  # number of clients
     numclients = 0
     server = 'coap://localhost:5683/model'  # server address
-    context = await Context.create_server_context(None)  # create a server context
-    while True:
+    context = await Context.create_server_context(('localhost', 5))  # create a server context
+    print("Server federated learning avviato.")
+
+    for i in range(10):
         request = await context.request
         if request.code == PUT:
             numclients += 1
@@ -72,3 +74,6 @@ async def main():
                 await receive_model(request)
         elif request.code == GET:
             await send_model(request)
+
+
+asyncio.get_event_loop().run_until_complete(main())
