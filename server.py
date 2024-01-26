@@ -1,5 +1,6 @@
 # federated learning server
 import asyncio
+from aiocoap.resource import Site, Resource
 from aiocoap import Context, Message, GET, PUT
 import tensorflow as tf
 import numpy as np
@@ -60,12 +61,14 @@ async def federated_averaging(request):
 async def main():
     global numclients  # number of clients
     numclients = 0
-    server = 'coap://localhost:5683/model'  # server address
-    context = await Context.create_server_context(('localhost', 5683))  # create a server context
+    server = 'coap://127.0.0.1:5683/model'  # server address
+    root = Site()
+    root.add_resource(['model'], Resource())  # add the resource to the site
+    await Context.create_server_context(bind=('127.0.0.1', 5683), site=root)
     print("Server federated learning avviato.")
 
     for i in range(10):
-        request = await context.request
+        request = await root.resource.render_post(None)
         if request.code == PUT:
             numclients += 1
             if numclients >= 2:  # run federated learning algorithm only if there are at least 2 clients
