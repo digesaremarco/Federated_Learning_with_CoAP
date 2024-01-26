@@ -1,6 +1,6 @@
 # federated learning client
 import tensorflow as tf
-from aiocoap import Context, Message, GET, POST
+from aiocoap import Context, Message, GET, POST, PUT
 import asyncio
 import json
 
@@ -30,9 +30,11 @@ class Client:
         model_weights_bytes = model_weights_json.encode() # convert the weights to bytes
 
         # create a post request with the weights as payload
-        request = Message(code=POST, payload=model_weights_bytes)
+        request = Message(code=PUT, payload=model_weights_bytes)
         request.set_request_uri(self.server_ip)
-        response = await protocol.request(request).response
+        print('attesa')
+        response = await asyncio.wait_for(protocol.request(request).response, timeout=10)
+        #response = await protocol.request(request).response
         print('Result: %s\n%r' % (response.code, response.payload))
 
     # receive updated weights from the server and update the model
@@ -46,8 +48,10 @@ class Client:
         print('Result: %s\n%r' % (response.code, response.payload))
 
         if response.payload:
-            model_weights = json.loads(response.payload) # Decode the payload
-            self.model.set_weights(model_weights) # update the model weights
+            weights_json = response.payload.decode() # convert the payload to string
+            weights = json.loads(weights_json) # extract the weights from the payload
+            weights = [tf.convert_to_tensor(w) for w in weights] # convert the weights to tensors
+            self.model.set_weights(weights)
         else:
             print("Received empty payload from the server. No model weights were updated.")
 
@@ -68,9 +72,11 @@ async def main():
 
     # send the model to the server
     await client.send_weights()
+    print("Weights sent to the server.")
 
     # receive the updated model from the server
     await client.receive_weights()
+    print("Weights received from the server.")
 
     # evaluate the model
     client.model.evaluate(x_test, y_test, batch_size=32)
