@@ -1,6 +1,6 @@
 # federated learning server with federated averaging
 import tensorflow as tf
-from aiocoap import Context, Message, POST, GET, PUT, CHANGED
+from aiocoap import Context, Message, POST, GET, PUT, CHANGED, CONTENT
 from aiocoap.resource import Site, Resource
 import asyncio
 import json
@@ -49,7 +49,7 @@ class Server(Resource):
         weights_json = json.dumps(weights_as_list)  # convert the weights to json format
         weights_bytes = weights_json.encode()  # convert the weights to bytes
         self.client_weights.clear()  # clear the client_weights list
-        return Message(payload=weights_bytes, code=GET)
+        return Message(payload=weights_bytes, code=CONTENT)
 
 
 # main function where the server is created and run federated learning algorithm for 10 rounds only if there are at least 2 clients
