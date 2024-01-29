@@ -23,33 +23,41 @@ class Server(Resource):
 
     # receive json format weights from client
     async def render_put(self, request):
-        print("Received weights from client.")
         payload = request.payload
         weights = payload.decode()  # convert the payload to string
         weights = json.loads(weights)  # extract the weights from the payload
-        weights = [tf.convert_to_tensor(w) for w in weights] # convert the weights to tensors
+        weights = [tf.convert_to_tensor(w) for w in weights]  # convert the weights to tensors
         self.client_weights.append(weights)  # add the weights to the list of clients' weights
+        print(len(self.client_weights))
 
         # return a message to the client
         return Message(payload=b'Weights received successfully', code=CHANGED)
 
     # calculate the average of the clients' weights using client_weights list
     async def federated_averaging(self):
-        #set global model weights randomly
+        while len(self.client_weights) < 2:
+            await asyncio.sleep(1)
+        # set global model weights randomly
         self.global_model.set_weights(self.client_weights[0])
-
-
 
     # send the global model's weights to the client and clear the client_weights list
     async def render_get(self, request):
+        await self.federated_averaging()
+
         print("Sending weights to client.")
         # send the global model's weights to the client
-        weights = self.global_model.get_weights() # get the weights of the model
-        weights_as_list = [w.tolist() for w in weights] # convert the weights to list
+        weights = self.global_model.get_weights()  # get the weights of the model
+        weights_as_list = [w.tolist() for w in weights]  # convert the weights to list
         weights_json = json.dumps(weights_as_list)  # convert the weights to json format
         weights_bytes = weights_json.encode()  # convert the weights to bytes
-        self.client_weights.clear()  # clear the client_weights list
         return Message(payload=weights_bytes, code=CONTENT)
+
+    # handle get requests from multiple clients
+    async def handle_get_requests(self, num_clients):
+        tasks = []
+        for i in range(num_clients):  # create a task for each client
+            tasks.append(self.render_get(None))  # the request is None because the request is not needed in render_get function
+        await asyncio.gather(*tasks) # run all the tasks concurrently
 
 
 # main function where the server is created and run federated learning algorithm for 10 rounds only if there are at least 2 clients
@@ -62,19 +70,12 @@ async def main():
     context = await Context.create_server_context(root, bind=('127.0.0.1', 5683))
     print('Server is running!')
 
-    # wait for at least 2 clients to connect
-    while len(server.client_weights) < 1:
-        print("Waiting for at least 2 clients to connect...")
-        await asyncio.sleep(5)
-
-    print("At least 2 clients connected. Starting federated learning.")
-
-    # run federated learning algorithm
-    await server.federated_averaging()
-    response = await server.render_get(None)  # send the global model's weights to the client
-    print('finished federated averaging')
-
-    await context.shutdown()  # shutdown the server
+    while True:
+        await asyncio.sleep(1)
+        if len(server.client_weights) == 2:
+            await server.federated_averaging()  # run federated averaging algorithm
+            await server.handle_get_requests(2) # handle get requests from multiple clients
+            server.client_weights.clear() # clear the list of clients' weights
 
 
 asyncio.run(main())  # run the main function

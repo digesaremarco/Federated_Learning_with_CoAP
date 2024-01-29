@@ -33,7 +33,7 @@ class Client:
         request = Message(code=PUT, payload=model_weights_bytes)
         request.set_request_uri(self.server_ip)
         print('attesa')
-        response = await asyncio.wait_for(protocol.request(request).response, timeout=10)
+        response = await asyncio.wait_for(protocol.request(request).response, timeout=1000)
         #response = await protocol.request(request).response
         print('Result: %s\n%r' % (response.code, response.payload))
 
@@ -73,6 +73,7 @@ async def main():
     # send the model to the server
     await client.send_weights()
     print("Weights sent to the server.")
+
 
     # receive the updated model from the server
     await client.receive_weights()
