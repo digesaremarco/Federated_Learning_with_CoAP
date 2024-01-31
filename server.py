@@ -10,6 +10,7 @@ class Server(Resource):
     def __init__(self):
         super().__init__()
         self.client_weights = []  # list of clients' weights
+        self.send_weights = asyncio.Event()  # event to send the weights to the server
         # definition of GRU model
         self.global_model = tf.keras.models.Sequential([
             tf.keras.layers.GRU(128, input_shape=(1, 46)),
@@ -37,16 +38,14 @@ class Server(Resource):
 
     # calculate the average of the clients' weights using client_weights list
     async def federated_averaging(self):
-        while len(self.client_weights) < 2: # wait until there are at least 2 clients
-            await asyncio.sleep(1)
+
         averaged_weights = [tf.reduce_mean(weights, axis=0) for weights in zip(*self.client_weights)] # calculate the average of the clients' weights
         self.global_model.set_weights(averaged_weights) # update the global model's weights
 
 
     # send the global model's weights to the client and clear the client_weights list
     async def render_get(self, request):
-        await self.federated_averaging()
-
+        await self.send_weights.wait()  # wait until the event is set
         print("Sending weights to client.")
         # send the global model's weights to the client
         weights = self.global_model.get_weights()  # get the weights of the model
@@ -77,8 +76,10 @@ async def main():
         await asyncio.sleep(1)
         if len(server.client_weights) == 2:
             await server.federated_averaging()  # run federated averaging algorithm
+            server.send_weights.set() # set the event to send the weights to the clients
             await server.handle_get_requests(2) # handle get requests from multiple clients
             server.client_weights.clear() # clear the list of clients' weights
+            server.send_weights.clear() # clear the event
 
 
 asyncio.run(main())  # run the main function
