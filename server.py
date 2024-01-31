@@ -21,6 +21,7 @@ class Server(Resource):
                                   loss='categorical_crossentropy',
                                   metrics=['accuracy'])
 
+
     # receive json format weights from client
     async def render_put(self, request):
         payload = request.payload
@@ -33,12 +34,14 @@ class Server(Resource):
         # return a message to the client
         return Message(payload=b'Weights received successfully', code=CHANGED)
 
+
     # calculate the average of the clients' weights using client_weights list
     async def federated_averaging(self):
-        while len(self.client_weights) < 2:
+        while len(self.client_weights) < 2: # wait until there are at least 2 clients
             await asyncio.sleep(1)
-        # set global model weights randomly
-        self.global_model.set_weights(self.client_weights[0])
+        averaged_weights = [tf.reduce_mean(weights, axis=0) for weights in zip(*self.client_weights)] # calculate the average of the clients' weights
+        self.global_model.set_weights(averaged_weights) # update the global model's weights
+
 
     # send the global model's weights to the client and clear the client_weights list
     async def render_get(self, request):
