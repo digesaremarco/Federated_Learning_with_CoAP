@@ -3,6 +3,13 @@ import tensorflow as tf
 from aiocoap import Context, Message, GET, POST, PUT
 import asyncio
 import json
+import os
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from keras.utils import to_categorical
+
 
 
 class Client:
@@ -11,13 +18,13 @@ class Client:
 
         # definition of GRU model
         self.model = tf.keras.models.Sequential([
-            tf.keras.layers.GRU(128, input_shape=(28, 28)),
-            tf.keras.layers.Dense(10, activation='softmax')
+            tf.keras.layers.GRU(128, input_shape=(1, 46)),
+            tf.keras.layers.Dense(34, activation='softmax')
         ])
 
         # compile the model
         self.model.compile(optimizer='adam',
-                      loss='sparse_categorical_crossentropy',
+                      loss='categorical_crossentropy',
                       metrics=['accuracy'])
 
     # send model's weights to the server
@@ -62,10 +69,44 @@ async def main():
     # client creation
     client = Client('coap://127.0.0.1:5683/model')
 
-    # load the data
-    mnist = tf.keras.datasets.mnist
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    x_train, x_test = x_train / 255.0, x_test / 255.0  # normalize the data
+    # load the datset "C:\Users\diges\Desktop\dataset\prova"
+    directory = "C:/Users/diges/Desktop/dataset/prova"
+    file_path = []
+
+    # search for all the csv files in the directory
+    for filename in os.listdir(directory):
+        if filename.endswith(".csv"):
+            file_path.append(os.path.join(directory, filename))
+
+    # create a dataframe for each csv file
+    df = []
+    for file in file_path:
+        df.append(pd.read_csv(file))
+
+    # concatenate all the dataframes
+    dataframe = pd.concat(df, ignore_index=True) # ignore_index=True is needed to reset the index of the dataframe
+    print(dataframe.head())  # print the first 5 rows of the dataframe
+    #print the columns of the dataframe and their type
+    print(dataframe.dtypes)
+
+    # convert the label column to int64
+    label_encoder = LabelEncoder() # create a label encoder
+    dataframe['label'] = label_encoder.fit_transform(dataframe['label']) # encode the labels
+    print(dataframe.dtypes)
+
+    # split the dataframe into train and test
+    X = dataframe.drop('label', axis=1) # drop the label column
+    y = dataframe['label'] # set the label column as target
+    x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3) # split the dataframe into train and test
+    x_train = np.expand_dims(x_train, axis=1) # expand the dimensions of the train set to fit the model
+    x_test = np.expand_dims(x_test, axis=1) # expand the dimensions of the test set to fit the model
+
+    # one-hot encoding of the labels
+    y_train = to_categorical(y_train)
+    y_test = to_categorical(y_test)
+
+    print(y_test.shape)
+
 
     # train the model
     client.model.fit(x_train, y_train, epochs=1, batch_size=32)

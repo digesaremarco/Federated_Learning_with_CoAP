@@ -10,15 +10,15 @@ class Server(Resource):
     def __init__(self):
         super().__init__()
         self.client_weights = []  # list of clients' weights
-        # definition of GRU global model
+        # definition of GRU model
         self.global_model = tf.keras.models.Sequential([
-            tf.keras.layers.GRU(128, input_shape=(28, 28)),
-            tf.keras.layers.Dense(10, activation='softmax')
+            tf.keras.layers.GRU(128, input_shape=(1, 46)),
+            tf.keras.layers.Dense(34, activation='softmax')
         ])
 
         # compile the model
         self.global_model.compile(optimizer='adam',
-                                  loss='sparse_categorical_crossentropy',
+                                  loss='categorical_crossentropy',
                                   metrics=['accuracy'])
 
     # receive json format weights from client
