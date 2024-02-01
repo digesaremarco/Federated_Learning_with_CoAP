@@ -9,6 +9,8 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from keras.utils import to_categorical
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
 
 
 
@@ -19,7 +21,7 @@ class Client:
         # definition of GRU model
         self.model = tf.keras.models.Sequential([
             tf.keras.layers.GRU(128, input_shape=(1, 46)),
-            tf.keras.layers.Dense(34, activation='softmax')
+            tf.keras.layers.Dense(4, activation='softmax')
         ])
 
         # compile the model
@@ -63,7 +65,6 @@ class Client:
             print("Received empty payload from the server. No model weights were updated.")
 
 
-
     # main
 async def main():
     # client creation
@@ -85,14 +86,27 @@ async def main():
 
     # concatenate all the dataframes
     dataframe = pd.concat(df, ignore_index=True) # ignore_index=True is needed to reset the index of the dataframe
-    print(dataframe.head())  # print the first 5 rows of the dataframe
-    #print the columns of the dataframe and their type
-    print(dataframe.dtypes)
+    #print(dataframe.head())  # print the first 5 rows of the dataframe
+    #print(dataframe.dtypes) # print the columns of the dataframe and their type
 
     # convert the label column to int64
     label_encoder = LabelEncoder() # create a label encoder
     dataframe['label'] = label_encoder.fit_transform(dataframe['label']) # encode the labels
-    print(dataframe.dtypes)
+    #print(dataframe.dtypes)
+
+    # remove the rows with missing values
+    dataframe = dataframe.dropna()
+
+    # normalize the dataframe
+    scaler = StandardScaler() # create a scaler
+    dataframe = pd.DataFrame(scaler.fit_transform(dataframe), columns=dataframe.columns) # normalize the dataframe
+
+    # preprocessing of the dataframe
+    imputer = SimpleImputer(missing_values=np.nan, strategy='mean') # create an imputer
+    dataframe = pd.DataFrame(imputer.fit_transform(dataframe), columns=dataframe.columns) # impute the missing values
+
+    # take 50% random of the dataframe
+    dataframe = dataframe.sample(frac=0.5, random_state=1)
 
     # split the dataframe into train and test
     X = dataframe.drop('label', axis=1) # drop the label column
@@ -105,7 +119,7 @@ async def main():
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
 
-    print(y_test.shape)
+    #print(y_test.shape)
 
 
     # train the model

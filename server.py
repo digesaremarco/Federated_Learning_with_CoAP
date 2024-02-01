@@ -14,7 +14,7 @@ class Server(Resource):
         # definition of GRU model
         self.global_model = tf.keras.models.Sequential([
             tf.keras.layers.GRU(128, input_shape=(1, 46)),
-            tf.keras.layers.Dense(34, activation='softmax')
+            tf.keras.layers.Dense(4, activation='softmax')
         ])
 
         # compile the model
