@@ -10,6 +10,7 @@ class Server(Resource):
     def __init__(self):
         super().__init__()
         self.client_weights = []  # list of clients' weights
+        self.num_clients = 0  # number of clients connected to the server
         self.send_weights = asyncio.Event()  # event to send the weights to the server
         # definition of GRU model
         self.global_model = tf.keras.models.Sequential([
@@ -22,26 +23,27 @@ class Server(Resource):
                                   loss='categorical_crossentropy',
                                   metrics=['accuracy'])
 
-
     # receive json format weights from client
     async def render_put(self, request):
-        payload = request.payload
-        weights = payload.decode()  # convert the payload to string
-        weights = json.loads(weights)  # extract the weights from the payload
-        weights = [tf.convert_to_tensor(w) for w in weights]  # convert the weights to tensors
-        self.client_weights.append(weights)  # add the weights to the list of clients' weights
-        print(len(self.client_weights))
-
-        # return a message to the client
-        return Message(payload=b'Weights received successfully', code=CHANGED)
-
+        self.num_clients += 1  # increment the number of clients connected to the server
+        if (len(self.client_weights) < 2):
+            payload = request.payload
+            weights = payload.decode()  # convert the payload to string
+            weights = json.loads(weights)  # extract the weights from the payload
+            weights = [tf.convert_to_tensor(w) for w in weights]  # convert the weights to tensors
+            self.client_weights.append(weights)  # add the weights to the list of clients' weights
+            print(len(self.client_weights))
+            # return a message to the client
+            return Message(payload=b'Weights received successfully', code=CHANGED)
+        else: # if there are already 2 clients connected to the server
+            return Message(payload=b'Weights not saved.', code=CHANGED)
 
     # calculate the average of the clients' weights using client_weights list
     async def federated_averaging(self):
 
-        averaged_weights = [tf.reduce_mean(weights, axis=0) for weights in zip(*self.client_weights)] # calculate the average of the clients' weights
-        self.global_model.set_weights(averaged_weights) # update the global model's weights
-
+        averaged_weights = [tf.reduce_mean(weights, axis=0) for weights in
+                            zip(*self.client_weights)]  # calculate the average of the clients' weights
+        self.global_model.set_weights(averaged_weights)  # update the global model's weights
 
     # send the global model's weights to the client and clear the client_weights list
     async def render_get(self, request):
@@ -55,11 +57,12 @@ class Server(Resource):
         return Message(payload=weights_bytes, code=CONTENT)
 
     # handle get requests from multiple clients
-    async def handle_get_requests(self, num_clients):
+    async def handle_get_requests(self):
         tasks = []
-        for i in range(num_clients):  # create a task for each client
-            tasks.append(self.render_get(None))  # the request is None because the request is not needed in render_get function
-        await asyncio.gather(*tasks) # run all the tasks concurrently
+        for i in range(self.num_clients):  # create a task for each client
+            tasks.append(
+                self.render_get(None))  # the request is None because the request is not needed in render_get function
+        await asyncio.gather(*tasks)  # run all the tasks concurrently
 
 
 # main function where the server is created and run federated learning algorithm for 10 rounds only if there are at least 2 clients
@@ -76,10 +79,11 @@ async def main():
         await asyncio.sleep(1)
         if len(server.client_weights) == 2:
             await server.federated_averaging()  # run federated averaging algorithm
-            server.send_weights.set() # set the event to send the weights to the clients
-            await server.handle_get_requests(2) # handle get requests from multiple clients
-            server.client_weights.clear() # clear the list of clients' weights
-            server.send_weights.clear() # clear the event
+            server.send_weights.set()  # set the event to send the weights to the clients
+            await server.handle_get_requests()  # handle get requests from multiple clients
+            server.client_weights.clear()  # clear the list of clients' weights
+            server.send_weights.clear()  # clear the event
+            server.num_clients = 0  # reset the number of clients connected to the server
 
 
 asyncio.run(main())  # run the main function
