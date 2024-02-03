@@ -60,8 +60,7 @@ class Server(Resource):
     async def handle_get_requests(self):
         tasks = []
         for i in range(self.num_clients):  # create a task for each client
-            tasks.append(
-                self.render_get(None))  # the request is None because the request is not needed in render_get function
+            tasks.append(self.render_get(None))  # the request is None because the request is not needed in render_get function
         await asyncio.gather(*tasks)  # run all the tasks concurrently
 
 
