@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from keras.utils import to_categorical
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
+from plot import Plot
 
 
 class Client:
@@ -62,7 +63,7 @@ class Client:
         else:
             print("Received empty payload from the server. No model weights were updated.")
 
-    async def simulate_client(self, client, dataframe):
+    async def simulate_client(self, client, dataframe, loss, accuracy):
         # take 50% random of the dataframe
         dataframe = dataframe.sample(frac=0.5, random_state=1)
 
@@ -92,14 +93,14 @@ class Client:
         print("Weights received from the server.")
 
         # evaluate the model
-        client.model.evaluate(x_test, y_test, batch_size=32)
+        loss1, accuracy1 = client.model.evaluate(x_test, y_test, batch_size=32)
+        loss.append(loss1)
+        accuracy.append(accuracy1)
+
 
 
 # main
 async def main():
-    # client creation
-    #client = Client('coap://127.0.0.1:5683/model')
-
     # load the datset "C:/Users/diges/Desktop/dataset/prova"
     directory = "C:/Users/diges/Desktop/dataset/prova"
     file_path = []
@@ -116,13 +117,10 @@ async def main():
 
     # concatenate all the dataframes
     dataframe = pd.concat(df, ignore_index=True)  # ignore_index=True is needed to reset the index of the dataframe
-    # print(dataframe.head())  # print the first 5 rows of the dataframe
-    # print(dataframe.dtypes) # print the columns of the dataframe and their type
 
     # convert the label column to int64
     label_encoder = LabelEncoder()  # create a label encoder
     dataframe['label'] = label_encoder.fit_transform(dataframe['label'])  # encode the labels
-    # print(dataframe.dtypes)
 
     # remove the rows with missing values
     dataframe = dataframe.dropna()
@@ -135,16 +133,26 @@ async def main():
     imputer = SimpleImputer(missing_values=np.nan, strategy='mean')  # create an imputer
     dataframe = pd.DataFrame(imputer.fit_transform(dataframe), columns=dataframe.columns)  # impute the missing values
 
+    plot = Plot()  # create an instance of the Plot class
+    loss = []
+    accuracy = []
     clients = []
     # create 2 clients
     for i in range(2):
         clients.append(Client('coap://127.0.0.1:5683/model'))
-    # simulate the clients
-    tasks = []
-    for client in clients:
-        tasks.append(client.simulate_client(client, dataframe))
-    await asyncio.gather(*tasks)  # run all the tasks concurrently
+    # simulate 10 rounds of federated learning
+    for i in range(10):
+        tasks = []
+        for client in clients:
+            tasks.append(client.simulate_client(client, dataframe, loss, accuracy))
+        await asyncio.gather(*tasks)  # run all the tasks concurrently
+        plot.add_loss(loss)
+        plot.add_accuracy(accuracy)
+        plot.add_round(i)
 
+    # plot the loss and accuracy
+    plot.plot_loss()
+    plot.plot_accuracy()
 
 
 asyncio.run(main())  # run the main function
