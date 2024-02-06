@@ -63,7 +63,7 @@ class Client:
         else:
             print("Received empty payload from the server. No model weights were updated.")
 
-    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1):
+    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_rate):
         # take 50% random of the dataframe
         dataframe = dataframe.sample(frac=0.5, random_state=1)
 
@@ -79,10 +79,19 @@ class Client:
         y_train = to_categorical(y_train)
         y_test = to_categorical(y_test)
 
-        # print(y_test.shape)
-
         # train the model
         client.model.fit(x_train, y_train, epochs=1, batch_size=32)
+
+        # simulate packet loss with a probability of loss_rate, change weights into zeros
+        if np.random.rand() < loss_rate:
+            print("Packet loss occurred.")
+            weights = client.model.get_weights()
+            weights_percentage = 0.4 # percentage of weights to set to zero
+            num_weights_to_zero = int(weights_percentage * len(weights)) # calculate the number of weights to set to zero
+            indices_to_zero = np.random.choice(range(len(weights)), num_weights_to_zero, replace=False) # select the indices of the weights to set to zero
+            for index in indices_to_zero:
+                weights[index] = np.zeros(weights[index].shape) # set the weights to zero
+            client.model.set_weights(weights) # update the model's weights
 
         # send the model to the server
         await client.send_weights()
@@ -157,11 +166,11 @@ async def main():
     for i in range(2):
         clients.append(Client('coap://127.0.0.1:5683/model'))
     # simulate 10 rounds of federated learning
-    for i in range(10):
+    for i in range(3):
         print("Round: ", i + 1)
         tasks = []
         for client in clients:
-            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1))
+            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, 1))
         await asyncio.gather(*tasks)  # run all the tasks concurrently
         plot.add_loss(loss)
         plot.add_accuracy(accuracy)
