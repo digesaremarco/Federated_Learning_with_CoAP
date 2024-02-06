@@ -141,7 +141,7 @@ async def main():
     for i in range(2):
         clients.append(Client('coap://127.0.0.1:5683/model'))
     # simulate 10 rounds of federated learning
-    for i in range(10):
+    for i in range(3):
         tasks = []
         for client in clients:
             tasks.append(client.simulate_client(client, dataframe, loss, accuracy))
@@ -149,10 +149,13 @@ async def main():
         plot.add_loss(loss)
         plot.add_accuracy(accuracy)
         plot.add_round(i)
+        loss.clear()
+        accuracy.clear()
 
     # plot the loss and accuracy
-    plot.plot_loss()
+    #plot.plot_loss()
     plot.plot_accuracy()
+    plot.plot_loss()
 
 
 asyncio.run(main())  # run the main function

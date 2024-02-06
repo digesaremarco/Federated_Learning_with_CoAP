@@ -24,6 +24,7 @@ class Plot:
 
     # plot method
     def plot(self, x, y, xlabel, ylabel, title):
+        plt.clf() # clear the current figure
         plt.plot(x, y)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
