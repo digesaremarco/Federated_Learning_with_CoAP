@@ -53,7 +53,7 @@ class Client:
         request = Message(code=GET)
         request.set_request_uri(self.server_ip)
         response = await protocol.request(request).response
-        #print('Result: %s\n%r' % (response.code, response.payload))
+        # print('Result: %s\n%r' % (response.code, response.payload))
 
         if response.payload:
             weights_json = response.payload.decode()  # convert the payload to string
@@ -63,7 +63,7 @@ class Client:
         else:
             print("Received empty payload from the server. No model weights were updated.")
 
-    async def simulate_client(self, client, dataframe, loss, accuracy):
+    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1):
         # take 50% random of the dataframe
         dataframe = dataframe.sample(frac=0.5, random_state=1)
 
@@ -97,6 +97,19 @@ class Client:
         loss.append(loss1)
         accuracy.append(accuracy1)
 
+        # calculate the precision, recall and f1 score
+        y_pred = client.model.predict(x_test)
+        y_pred = np.argmax(y_pred, axis=1)
+        y_test = np.argmax(y_test, axis=1)
+        precision1 = tf.keras.metrics.Precision()
+        precision1.update_state(y_test, y_pred)
+        precision.append(precision1.result().numpy())
+        recall1 = tf.keras.metrics.Recall()
+        recall1.update_state(y_test, y_pred)
+        recall.append(recall1.result().numpy())
+        f1_score = 2 * (precision1.result().numpy() * recall1.result().numpy()) / (
+                    precision1.result().numpy() + recall1.result().numpy())
+        f1.append(f1_score)
 
 
 # main
@@ -136,26 +149,37 @@ async def main():
     plot = Plot()  # create an instance of the Plot class
     loss = []
     accuracy = []
+    precision = []
+    recall = []
+    f1 = []
     clients = []
     # create 2 clients
     for i in range(2):
         clients.append(Client('coap://127.0.0.1:5683/model'))
     # simulate 10 rounds of federated learning
-    for i in range(3):
+    for i in range(10):
+        print("Round: ", i + 1)
         tasks = []
         for client in clients:
-            tasks.append(client.simulate_client(client, dataframe, loss, accuracy))
+            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1))
         await asyncio.gather(*tasks)  # run all the tasks concurrently
         plot.add_loss(loss)
         plot.add_accuracy(accuracy)
-        plot.add_round(i)
+        plot.add_precision(precision)
+        plot.add_recall(recall)
+        plot.add_f1(f1)
+        plot.add_round(i + 1)
         loss.clear()
         accuracy.clear()
+        precision.clear()
+        recall.clear()
+        f1.clear()
 
-    # plot the loss and accuracy
-    #plot.plot_loss()
     plot.plot_accuracy()
     plot.plot_loss()
+    plot.plot_precision()
+    plot.plot_recall()
+    plot.plot_f1()
 
 
 asyncio.run(main())  # run the main function
