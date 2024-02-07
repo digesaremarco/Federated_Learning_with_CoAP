@@ -61,7 +61,7 @@ class Client:
         else:
             print("Received empty payload from the server. No model weights were updated.")
 
-    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_rate):
+    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage):
         # take 50% random of the dataframe
         dataframe = dataframe.sample(frac=0.5, random_state=1)
 
@@ -84,7 +84,6 @@ class Client:
         if np.random.rand() < loss_rate:
             print("Packet loss occurred.")
             weights = client.model.get_weights()
-            weights_percentage = 0.4 # percentage of weights to set to zero
             num_weights_to_zero = int(weights_percentage * len(weights)) # calculate the number of weights to set to zero
             indices_to_zero = np.random.choice(range(len(weights)), num_weights_to_zero, replace=False) # select the indices of the weights to set to zero
             for index in indices_to_zero:
@@ -157,21 +156,30 @@ async def main():
     precision = []
     recall = []
     f1 = []
-    loss_rate = 0
-    loss_rate_list = [0]
+    loss_rate_list = []
+    weights_percentage_list = []
     num_clients = 2
     clients = []
+
     # create 2 clients
     for i in range(num_clients):
         clients.append(Client('coap://127.0.0.1:5683/model'))
+
     # simulate 10 rounds of federated learning
     for i in range(3):
         print("Round: ", i + 1)
         tasks = []
+
         for client in clients:
-            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, loss_rate))
+            loss_rate = np.random.rand()  # packet loss rate
+            weights_percentage = np.random.rand()  # percentage of weights to set to zero
+            weights_percentage_list.append(weights_percentage)
             loss_rate_list.append(loss_rate)
+            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage))
+
         await asyncio.gather(*tasks)  # run all the tasks concurrently
+
+        # add the results to the plot
         plot.add_loss(loss)
         plot.add_accuracy(accuracy)
         plot.add_precision(precision)
@@ -179,19 +187,25 @@ async def main():
         plot.add_f1(f1)
         plot.add_round(i + 1)
         plot.add_loss_rate(loss_rate_list)
+        plot.add_weights_percentage(weights_percentage_list)
+
+        # clear the lists
         loss.clear()
         accuracy.clear()
         precision.clear()
         recall.clear()
         f1.clear()
-        loss_rate_list = [0]
-        loss_rate += 0.1
+        loss_rate_list.clear()
+        weights_percentage_list.clear()
+
+    # plot the results
     plot.plot_accuracy()
     plot.plot_loss()
     plot.plot_precision()
     plot.plot_recall()
     plot.plot_f1()
     plot.plot_loss_rate_table(num_clients)
+    plot.plot_weights_percentage_table(num_clients)
 
 
 asyncio.run(main())  # run the main function

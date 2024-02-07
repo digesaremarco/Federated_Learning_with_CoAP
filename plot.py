@@ -12,6 +12,7 @@ class Plot:
         self.recall = [0]
         self.f1 = [0]
         self.loss_rate = []
+        self.weights_percentage = []
 
     # receive the loss vector and calculate the average loss
     def add_loss(self, loss):
@@ -40,7 +41,11 @@ class Plot:
 
     # receive the loss rate vector
     def add_loss_rate(self, loss_rate):
-        self.loss_rate.append(loss_rate)
+        self.loss_rate.append(loss_rate.copy())  # add the loss rate to the list by copying it to avoid reference
+
+    # receive the weights percentage vector
+    def add_weights_percentage(self, weights_percentage):
+        self.weights_percentage.append(weights_percentage.copy())  # add the weights percentage to the list by copying it to avoid reference
 
     # receive the round number
     def add_round(self, round):
@@ -76,29 +81,37 @@ class Plot:
         self.plot(self.round, self.f1, "Round", "F1", "Federated Learning F1")
 
 
-    # plot the loss rate table for each round and each client
-    def plot_loss_rate_table(self, num_clients):
+    # generic plot table method
+    def plot_table(self, num_clients, data, title):
         plt.clf()
         # set the number of rows and columns in the table
-        rows = num_clients + 1 # add 1 to the number of clients for the header
-        columns = len(self.round) # the number of columns is equal to the number of rounds
-        cell_text = [] # create an empty list to store the cell text
+        rows = num_clients + 1
+        columns = len(self.round)
+        cell_text = []  # create an empty list to store the cell text
         for i in range(rows):
             cell_text.append([])
             for j in range(columns):
-                if j == 0 and i == 0:
+                if i == 0 and j == 0:
                     cell_text[i].append("Round/Client")
-                if j == 0 and i > 0:
-                    cell_text[i].append("Client " + str(i))
                 if i == 0 and j > 0:
                     cell_text[i].append("Round " + str(j))
+                if i > 0 and j == 0:
+                    cell_text[i].append("Client " + str(i))
                 if i > 0 and j > 0:
-                    # self.loss_rate is a list of lists where each list contains the loss rate of each client for each round
-                    cell_text[i].append(str(self.loss_rate[j-1][i-1]))
+                    cell_text[i].append(str(round(data[j - 1][i - 1], 4)))
         # create a table
         table = plt.table(cellText=cell_text, loc='center')
         table.auto_set_font_size(False)
         table.set_fontsize(14)
         table.scale(1, 1.5)
         plt.axis('off')
-        plt.savefig("Federated Learning Loss Rate Table.png")
+        plt.savefig(title + ".png")
+
+
+    # plot the loss rate table for each round and each client
+    def plot_loss_rate_table(self, num_clients):
+        self.plot_table(num_clients, self.loss_rate, "Federated Learning Loss Rate Table")
+
+    # plot the weights percentage table for each round and each client
+    def plot_weights_percentage_table(self, num_clients):
+        self.plot_table(num_clients, self.weights_percentage, "Federated Learning Weights Percentage Table")
