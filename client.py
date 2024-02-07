@@ -41,9 +41,7 @@ class Client:
         # create a post request with the weights as payload
         request = Message(code=PUT, payload=model_weights_bytes)
         request.set_request_uri(self.server_ip)
-        print('attesa')
-        response = await asyncio.wait_for(protocol.request(request).response, timeout=1000)
-        print('Result: %s\n%r' % (response.code, response.payload))
+        await asyncio.wait_for(protocol.request(request).response, timeout=1000)
 
     # receive updated weights from the server and update the model
     async def receive_weights(self):
@@ -95,11 +93,9 @@ class Client:
 
         # send the model to the server
         await client.send_weights()
-        print("Weights sent to the server.")
 
         # receive the updated model from the server
         await client.receive_weights()
-        print("Weights received from the server.")
 
         # evaluate the model
         loss1, accuracy1 = client.model.evaluate(x_test, y_test, batch_size=32)
@@ -161,16 +157,20 @@ async def main():
     precision = []
     recall = []
     f1 = []
+    loss_rate = 0
+    loss_rate_list = [0]
+    num_clients = 2
     clients = []
     # create 2 clients
-    for i in range(2):
+    for i in range(num_clients):
         clients.append(Client('coap://127.0.0.1:5683/model'))
     # simulate 10 rounds of federated learning
     for i in range(3):
         print("Round: ", i + 1)
         tasks = []
         for client in clients:
-            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, 1))
+            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, loss_rate))
+            loss_rate_list.append(loss_rate)
         await asyncio.gather(*tasks)  # run all the tasks concurrently
         plot.add_loss(loss)
         plot.add_accuracy(accuracy)
@@ -178,17 +178,20 @@ async def main():
         plot.add_recall(recall)
         plot.add_f1(f1)
         plot.add_round(i + 1)
+        plot.add_loss_rate(loss_rate_list)
         loss.clear()
         accuracy.clear()
         precision.clear()
         recall.clear()
         f1.clear()
-
+        loss_rate_list = [0]
+        loss_rate += 0.1
     plot.plot_accuracy()
     plot.plot_loss()
     plot.plot_precision()
     plot.plot_recall()
     plot.plot_f1()
+    plot.plot_loss_rate_table(num_clients)
 
 
 asyncio.run(main())  # run the main function
