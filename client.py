@@ -61,7 +61,9 @@ class Client:
         else:
             print("Received empty payload from the server. No model weights were updated.")
 
-    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage):
+    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage, loss_or_not):
+        pckt_loss = False
+
         # take 50% random of the dataframe
         dataframe = dataframe.sample(frac=0.5, random_state=1)
 
@@ -83,12 +85,19 @@ class Client:
         # simulate packet loss with a probability of loss_rate, change weights into zeros
         if np.random.rand() < loss_rate:
             print("Packet loss occurred.")
+            pckt_loss = True
             weights = client.model.get_weights()
             num_weights_to_zero = int(weights_percentage * len(weights)) # calculate the number of weights to set to zero
             indices_to_zero = np.random.choice(range(len(weights)), num_weights_to_zero, replace=False) # select the indices of the weights to set to zero
             for index in indices_to_zero:
                 weights[index] = np.zeros(weights[index].shape) # set the weights to zero
             client.model.set_weights(weights) # update the model's weights
+
+        # add the result to the loss_or_not list
+        if(pckt_loss):
+            loss_or_not.append("Loss")
+        else:
+            loss_or_not.append("No Loss")
 
         # send the model to the server
         await client.send_weights()
@@ -158,6 +167,7 @@ async def main():
     f1 = []
     loss_rate_list = []
     weights_percentage_list = []
+    loss_or_not = []
     num_clients = 2
     clients = []
 
@@ -166,16 +176,16 @@ async def main():
         clients.append(Client('coap://127.0.0.1:5683/model'))
 
     # simulate 10 rounds of federated learning
-    for i in range(3):
+    for i in range(1):
         print("Round: ", i + 1)
         tasks = []
 
         for client in clients:
             loss_rate = np.random.rand()  # packet loss rate
             weights_percentage = np.random.rand()  # percentage of weights to set to zero
-            weights_percentage_list.append(weights_percentage)
-            loss_rate_list.append(loss_rate)
-            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage))
+            weights_percentage_list.append(round(weights_percentage, 4))
+            loss_rate_list.append(round(loss_rate, 4))
+            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage, loss_or_not))
 
         await asyncio.gather(*tasks)  # run all the tasks concurrently
 
@@ -188,6 +198,7 @@ async def main():
         plot.add_round(i + 1)
         plot.add_loss_rate(loss_rate_list)
         plot.add_weights_percentage(weights_percentage_list)
+        plot.add_loss_or_not(loss_or_not)
 
         # clear the lists
         loss.clear()
@@ -197,6 +208,7 @@ async def main():
         f1.clear()
         loss_rate_list.clear()
         weights_percentage_list.clear()
+        loss_or_not.clear()
 
     # plot the results
     plot.plot_accuracy()
@@ -206,6 +218,7 @@ async def main():
     plot.plot_f1()
     plot.plot_loss_rate_table(num_clients)
     plot.plot_weights_percentage_table(num_clients)
+    plot.plot_loss_or_not_table(num_clients)
 
 
 asyncio.run(main())  # run the main function

@@ -13,6 +13,7 @@ class Plot:
         self.f1 = [0]
         self.loss_rate = []
         self.weights_percentage = []
+        self.loss_or_not = []
 
     # receive the loss vector and calculate the average loss
     def add_loss(self, loss):
@@ -46,6 +47,10 @@ class Plot:
     # receive the weights percentage vector
     def add_weights_percentage(self, weights_percentage):
         self.weights_percentage.append(weights_percentage.copy())  # add the weights percentage to the list by copying it to avoid reference
+
+    # receive the loss or not vector
+    def add_loss_or_not(self, loss_or_not):
+        self.loss_or_not.append(loss_or_not.copy())  # add the loss or not to the list by copying it to avoid reference
 
     # receive the round number
     def add_round(self, round):
@@ -98,13 +103,14 @@ class Plot:
                 if i > 0 and j == 0:
                     cell_text[i].append("Client " + str(i))
                 if i > 0 and j > 0:
-                    cell_text[i].append(str(round(data[j - 1][i - 1], 4)))
+                    cell_text[i].append(str(data[j - 1][i - 1]))
         # create a table
         table = plt.table(cellText=cell_text, loc='center')
         table.auto_set_font_size(False)
         table.set_fontsize(14)
         table.scale(1, 1.5)
         plt.axis('off')
+        plt.title(title)
         plt.savefig(title + ".png")
 
 
@@ -115,3 +121,7 @@ class Plot:
     # plot the weights percentage table for each round and each client
     def plot_weights_percentage_table(self, num_clients):
         self.plot_table(num_clients, self.weights_percentage, "Federated Learning Weights Percentage Table")
+
+    # plot the loss or not table for each round and each client
+    def plot_loss_or_not_table(self, num_clients):
+        self.plot_table(num_clients, self.loss_or_not, "Federated Learning Loss or Not Table")
