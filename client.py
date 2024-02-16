@@ -38,6 +38,9 @@ class Client:
         model_weights_json = json.dumps(model_weights)  # convert the weights to json format
         model_weights_bytes = model_weights_json.encode()  # convert the weights to bytes
 
+        # print the size of the payload in megabytes
+        print("Payload size: ", len(model_weights_bytes) / (1024 * 1024), "MB")
+
         # create a post request with the weights as payload
         request = Message(code=PUT, payload=model_weights_bytes)
         request.set_request_uri(self.server_ip)
@@ -54,6 +57,8 @@ class Client:
         # print('Result: %s\n%r' % (response.code, response.payload))
 
         if response.payload:
+            # print the size of the payload in megabytes
+            print("Payload size: ", len(response.payload) / (1024 * 1024), "MB")
             weights_json = response.payload.decode()  # convert the payload to string
             weights = json.loads(weights_json)  # extract the weights from the payload
             weights = [tf.convert_to_tensor(w) for w in weights]  # convert the weights to tensors
@@ -64,14 +69,13 @@ class Client:
     async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage, loss_or_not):
         pckt_loss = False
 
-        # take 50% random of the dataframe
-        dataframe = dataframe.sample(frac=0.5, random_state=1)
+        # take a sample of the dataframe
+        dataframe = dataframe.sample(frac=0.05, random_state=None, replace=False, axis=0)
 
         # split the dataframe into train and test
         X = dataframe.drop('label', axis=1)  # drop the label column
         y = dataframe['label']  # set the label column as target
-        x_train, x_test, y_train, y_test = train_test_split(X, y,
-                                                            test_size=0.3)  # split the dataframe into train and test
+        x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3)  # split the dataframe into train and test
         x_train = np.expand_dims(x_train, axis=1)  # expand the dimensions of the train set to fit the model
         x_test = np.expand_dims(x_test, axis=1)  # expand the dimensions of the test set to fit the model
 
@@ -168,7 +172,7 @@ async def main():
     loss_rate_list = []
     weights_percentage_list = []
     loss_or_not = []
-    num_clients = 2
+    num_clients = 6
     clients = []
 
     # create 2 clients
@@ -176,7 +180,7 @@ async def main():
         clients.append(Client('coap://127.0.0.1:5683/model'))
 
     # simulate 10 rounds of federated learning
-    for i in range(1):
+    for i in range(4):
         print("Round: ", i + 1)
         tasks = []
 
@@ -185,7 +189,7 @@ async def main():
             weights_percentage = np.random.rand()  # percentage of weights to set to zero
             weights_percentage_list.append(round(weights_percentage, 4))
             loss_rate_list.append(round(loss_rate, 4))
-            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage, loss_or_not))
+            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, 0, weights_percentage, loss_or_not))
 
         await asyncio.gather(*tasks)  # run all the tasks concurrently
 

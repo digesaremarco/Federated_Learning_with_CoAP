@@ -11,6 +11,7 @@ class Server(Resource):
         super().__init__()
         self.client_weights = []  # list of clients' weights
         self.num_clients = 0  # number of clients connected to the server
+        self.clients = 6 # number of clients needed to start federated averaging
         self.send_weights = asyncio.Event()  # event to send the weights to the server
         # definition of GRU model
         self.global_model = tf.keras.models.Sequential([
@@ -26,7 +27,7 @@ class Server(Resource):
     # receive json format weights from client
     async def render_put(self, request):
         self.num_clients += 1  # increment the number of clients connected to the server
-        if (len(self.client_weights) < 2):
+        if (len(self.client_weights) < self.clients):
             payload = request.payload
             weights = payload.decode()  # convert the payload to string
             weights = json.loads(weights)  # extract the weights from the payload
@@ -76,7 +77,7 @@ async def main():
 
     while True:
         await asyncio.sleep(1)
-        if len(server.client_weights) == 2:
+        if len(server.client_weights) == server.clients:
             await server.federated_averaging()  # run federated averaging algorithm
             server.send_weights.set()  # set the event to send the weights to the clients
             await server.handle_get_requests()  # handle get requests from multiple clients
