@@ -70,7 +70,7 @@ class Client:
         pckt_loss = False
 
         # take a sample of the dataframe
-        dataframe = dataframe.sample(frac=0.05, random_state=None, replace=False, axis=0)
+        dataframe = dataframe.sample(frac=0.05, random_state=None, replace=True, axis=0)
 
         # split the dataframe into train and test
         X = dataframe.drop('label', axis=1)  # drop the label column
@@ -175,12 +175,12 @@ async def main():
     num_clients = 6
     clients = []
 
-    # create 2 clients
+    # create clients
     for i in range(num_clients):
         clients.append(Client('coap://127.0.0.1:5683/model'))
 
-    # simulate 10 rounds of federated learning
-    for i in range(4):
+    # simulate some rounds of federated learning
+    for i in range(5):
         print("Round: ", i + 1)
         tasks = []
 
