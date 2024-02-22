@@ -108,7 +108,7 @@ class Plot:
         table = plt.table(cellText=cell_text, loc='center')
         table.auto_set_font_size(False)
         table.set_fontsize(14)
-        table.scale(1, 1.5)
+        table.scale(1.2, 2)
         plt.axis('off')
         plt.title(title)
         plt.savefig(title + ".png")

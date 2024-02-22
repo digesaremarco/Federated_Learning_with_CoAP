@@ -17,6 +17,9 @@ from plot import Plot
 class Client:
     def __init__(self, server_ip):
         self.server_ip = server_ip
+        self.loss_rate = 0
+        self.weights_percentage = 0
+        self.dataframe = pd.DataFrame()
 
         # definition of GRU model
         self.model = tf.keras.models.Sequential([
@@ -66,15 +69,15 @@ class Client:
         else:
             print("Received empty payload from the server. No model weights were updated.")
 
-    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_rate, weights_percentage, loss_or_not):
+    async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_or_not):
         pckt_loss = False
 
         # take a sample of the dataframe
-        dataframe = dataframe.sample(frac=0.05, random_state=None, replace=True, axis=0)
+        self.dataframe = dataframe.sample(frac=0.05, random_state=None, replace=True, axis=0)
 
         # split the dataframe into train and test
-        X = dataframe.drop('label', axis=1)  # drop the label column
-        y = dataframe['label']  # set the label column as target
+        X = self.dataframe.drop('label', axis=1)  # drop the label column
+        y = self.dataframe['label']  # set the label column as target
         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3)  # split the dataframe into train and test
         x_train = np.expand_dims(x_train, axis=1)  # expand the dimensions of the train set to fit the model
         x_test = np.expand_dims(x_test, axis=1)  # expand the dimensions of the test set to fit the model
@@ -87,11 +90,11 @@ class Client:
         client.model.fit(x_train, y_train, epochs=1, batch_size=32)
 
         # simulate packet loss with a probability of loss_rate, change weights into zeros
-        if np.random.rand() < loss_rate:
+        if np.random.rand() < self.loss_rate:
             print("Packet loss occurred.")
             pckt_loss = True
             weights = client.model.get_weights()
-            num_weights_to_zero = int(weights_percentage * len(weights)) # calculate the number of weights to set to zero
+            num_weights_to_zero = int(self.weights_percentage * len(weights)) # calculate the number of weights to set to zero
             indices_to_zero = np.random.choice(range(len(weights)), num_weights_to_zero, replace=False) # select the indices of the weights to set to zero
             for index in indices_to_zero:
                 weights[index] = np.zeros(weights[index].shape) # set the weights to zero
@@ -189,7 +192,9 @@ async def main():
             weights_percentage = np.random.rand()  # percentage of weights to set to zero
             weights_percentage_list.append(round(weights_percentage, 4))
             loss_rate_list.append(round(loss_rate, 4))
-            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, 0, weights_percentage, loss_or_not))
+            client.loss_rate = loss_rate
+            client.weights_percentage = weights_percentage
+            tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, loss_or_not))
 
         await asyncio.gather(*tasks)  # run all the tasks concurrently
 
