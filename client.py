@@ -72,9 +72,6 @@ class Client:
     async def simulate_client(self, client, dataframe, loss, accuracy, precision, recall, f1, loss_or_not):
         pckt_loss = False
 
-        # take a sample of the dataframe
-        self.dataframe = dataframe.sample(frac=0.05, random_state=None, replace=True, axis=0)
-
         # split the dataframe into train and test
         X = self.dataframe.drop('label', axis=1)  # drop the label column
         y = self.dataframe['label']  # set the label column as target
@@ -175,25 +172,39 @@ async def main():
     loss_rate_list = []
     weights_percentage_list = []
     loss_or_not = []
-    num_clients = 6
+    num_clients = 3
     clients = []
+    overlap = []
+    overlpagging = 0.3 # overlapping percentage
 
     # create clients
     for i in range(num_clients):
         clients.append(Client('coap://127.0.0.1:5683/model'))
 
     # simulate some rounds of federated learning
-    for i in range(5):
+    for i in range(3):
         print("Round: ", i + 1)
         tasks = []
 
         for client in clients:
-            loss_rate = np.random.rand()  # packet loss rate
+            # create dataframe samples for each client with overlapping
+            dataframe_client = dataframe.sample(frac=0.05, random_state=None, replace=True, axis=0) # sample of the dataframe
+            overlap.append(dataframe_client.sample(frac=overlpagging, random_state=None, replace=True, axis=0)) # overlapping
+            if (len(overlap) > 1):
+                # remove rows from dataframe_client and add overlap to dataframe_client to simulate overlapping
+                dataframe_client = dataframe_client.sample(frac=1 - overlpagging, random_state=None, replace=True, axis=0)
+                dataframe_client = pd.concat([dataframe_client, overlap[-1]], ignore_index=True)
+            client.dataframe = dataframe_client
+
+            # simulate packet loss with a probability of loss_rate, change weights into zeros
+            loss_rate = np.random.rand() / 10 # loss rate
             weights_percentage = np.random.rand()  # percentage of weights to set to zero
             weights_percentage_list.append(round(weights_percentage, 4))
             loss_rate_list.append(round(loss_rate, 4))
-            client.loss_rate = loss_rate
+            client.loss_rate = 0
             client.weights_percentage = weights_percentage
+
+            # create a task for each client
             tasks.append(client.simulate_client(client, dataframe, loss, accuracy, precision, recall, f1, loss_or_not))
 
         await asyncio.gather(*tasks)  # run all the tasks concurrently

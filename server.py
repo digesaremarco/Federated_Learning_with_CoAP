@@ -11,7 +11,7 @@ class Server(Resource):
         super().__init__()
         self.client_weights = []  # list of clients' weights
         self.num_clients = 0  # number of clients connected to the server
-        self.clients = 6 # number of clients needed to start federated averaging
+        self.clients = 3 # number of clients needed to start federated averaging
         self.send_weights = asyncio.Event()  # event to send the weights to the server
         # definition of GRU model
         self.global_model = tf.keras.models.Sequential([
