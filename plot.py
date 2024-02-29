@@ -14,6 +14,7 @@ class Plot:
         self.loss_rate = []
         self.weights_percentage = []
         self.loss_or_not = []
+        self.confusion_matrix = []
 
     # receive the loss vector and calculate the average loss
     def add_loss(self, loss):
@@ -39,6 +40,11 @@ class Plot:
     def add_f1(self, f1):
         f1 = np.mean(f1)  # calculate the average f1
         self.f1.append(f1)
+
+    # receive the confusion matrix
+    def add_confusion_matrix(self, confusion_matrix):
+        confusion_matrix = np.mean(confusion_matrix, axis=0)  # calculate the average confusion matrix
+        self.confusion_matrix.append(confusion_matrix)
 
     # receive the loss rate vector
     def add_loss_rate(self, loss_rate):
@@ -84,6 +90,15 @@ class Plot:
     # plot the f1
     def plot_f1(self):
         self.plot(self.round, self.f1, "Round", "F1", "Federated Learning F1")
+
+    # plot the confusion matrix
+    def plot_confusion_matrix(self):
+        plt.clf()
+        for i in range(len(self.confusion_matrix)):
+            plt.matshow(self.confusion_matrix[i], cmap='Blues')
+            plt.colorbar()
+            plt.title("Confusion Matrix for Round " + str(i + 1))
+            plt.savefig("Confusion Matrix for Round " + str(i + 1) + ".png")
 
 
     # generic plot table method
