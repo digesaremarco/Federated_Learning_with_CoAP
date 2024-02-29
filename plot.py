@@ -43,6 +43,15 @@ class Plot:
 
     # receive the confusion matrix
     def add_confusion_matrix(self, confusion_matrix):
+        # calculate the longest confusion matrix
+        max_length = max([len(cm) for cm in confusion_matrix])
+
+        # pad the confusion matrix with zeros to make them all the same length
+        for i in range(len(confusion_matrix)):
+            if len(confusion_matrix[i]) < max_length:
+                confusion_matrix[i] = np.pad(confusion_matrix[i], ((0, max_length - len(confusion_matrix[i])), (0, max_length - len(confusion_matrix[i]))), 'constant')
+
+        # calculate the average confusion matrix
         confusion_matrix = np.mean(confusion_matrix, axis=0)  # calculate the average confusion matrix
         self.confusion_matrix.append(confusion_matrix)
 
