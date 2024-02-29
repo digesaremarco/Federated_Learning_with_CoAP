@@ -44,7 +44,8 @@ class Plot:
     # receive the confusion matrix
     def add_confusion_matrix(self, confusion_matrix):
         # calculate the longest confusion matrix
-        max_length = max([len(cm) for cm in confusion_matrix])
+        #max_length = max([len(cm) for cm in confusion_matrix])
+        max_length = 23
 
         # pad the confusion matrix with zeros to make them all the same length
         for i in range(len(confusion_matrix)):
