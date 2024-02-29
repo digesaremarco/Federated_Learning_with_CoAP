@@ -11,12 +11,13 @@ class Server(Resource):
         super().__init__()
         self.client_weights = []  # list of clients' weights
         self.num_clients = 0  # number of clients connected to the server
-        self.clients = 3 # number of clients needed to start federated averaging
+        self.clients = 3  # number of clients needed to start federated averaging
         self.send_weights = asyncio.Event()  # event to send the weights to the server
+
         # definition of GRU model
         self.global_model = tf.keras.models.Sequential([
             tf.keras.layers.GRU(128, input_shape=(1, 46)),
-            tf.keras.layers.Dense(4, activation='softmax')
+            tf.keras.layers.Dense(3, activation='softmax')
         ])
 
         # compile the model
@@ -32,18 +33,26 @@ class Server(Resource):
             weights = payload.decode()  # convert the payload to string
             weights = json.loads(weights)  # extract the weights from the payload
             weights = [tf.convert_to_tensor(w) for w in weights]  # convert the weights to tensors
-            self.client_weights.append(weights)  # add the weights to the list of clients' weights
+
+            # check if the weights aren't all zeros
+            if not all(tf.reduce_all(tf.equal(w, 0)) for w in weights):
+                self.client_weights.append(weights)  # add the weights to the list of clients' weights
+
             print(len(self.client_weights))
             # return a message to the client
             return Message(payload=b'Weights received successfully', code=CHANGED)
-        else: # if there are already 2 clients connected to the server
+        else:  # if there are already 2 clients connected to the server
             return Message(payload=b'Weights not saved.', code=CHANGED)
 
     # calculate the average of the clients' weights using client_weights list
     async def federated_averaging(self):
-
-        averaged_weights = [tf.reduce_mean(weights, axis=0) for weights in
-                            zip(*self.client_weights)]  # calculate the average of the clients' weights
+        # check if there is at least one model in the list
+        if len(self.client_weights) > 0:
+            averaged_weights = [tf.reduce_mean(weights, axis=0) for weights in
+                                zip(*self.client_weights)]  # calculate the average of the clients' weights
+        else: # set the weights to zeros if there are no models in the list
+            averaged_weights = self.global_model.get_weights()
+            averaged_weights = [tf.zeros_like(w) for w in averaged_weights]
         self.global_model.set_weights(averaged_weights)  # update the global model's weights
 
     # send the global model's weights to the client and clear the client_weights list
@@ -61,7 +70,8 @@ class Server(Resource):
     async def handle_get_requests(self):
         tasks = []
         for i in range(self.num_clients):  # create a task for each client
-            tasks.append(self.render_get(None))  # the request is None because the request is not needed in render_get function
+            tasks.append(
+                self.render_get(None))  # the request is None because the request is not needed in render_get function
         await asyncio.gather(*tasks)  # run all the tasks concurrently
 
 
