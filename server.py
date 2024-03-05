@@ -11,8 +11,9 @@ class Server(Resource):
         super().__init__()
         self.client_weights = []  # list of clients' weights
         self.num_clients = 0  # number of clients connected to the server
-        self.clients = 3  # number of clients needed to start federated averaging
+        self.clients = 10  # number of clients needed to start federated averaging
         self.send_weights = asyncio.Event()  # event to send the weights to the server
+        self.counter_loss = 0  # counter for the loss
 
         # definition of GRU model
         self.global_model = tf.keras.models.Sequential([
@@ -37,8 +38,10 @@ class Server(Resource):
             # check if the weights aren't all zeros
             if not all(tf.reduce_all(tf.equal(w, 0)) for w in weights):
                 self.client_weights.append(weights)  # add the weights to the list of clients' weights
+            else:
+                self.counter_loss += 1  # increment the counter for the loss
 
-            print(len(self.client_weights))
+            print(len(self.client_weights) + self.counter_loss, "clients connected to the server.")
             # return a message to the client
             return Message(payload=b'Weights received successfully', code=CHANGED)
         else:  # if there are already 2 clients connected to the server
@@ -87,13 +90,14 @@ async def main():
 
     while True:
         await asyncio.sleep(1)
-        if len(server.client_weights) == server.clients:
+        if (len(server.client_weights) + server.counter_loss) == server.clients:
             await server.federated_averaging()  # run federated averaging algorithm
             server.send_weights.set()  # set the event to send the weights to the clients
             await server.handle_get_requests()  # handle get requests from multiple clients
             server.client_weights.clear()  # clear the list of clients' weights
             server.send_weights.clear()  # clear the event
             server.num_clients = 0  # reset the number of clients connected to the server
+            server.counter_loss = 0
 
 
 asyncio.run(main())  # run the main function
